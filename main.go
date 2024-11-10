@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 
@@ -31,7 +32,11 @@ func (q Queue) AddURL(url string) {
 }
 
 func main() {
-	response, err := http.Get("https://gobyexample.com")
+	URLQueue := Queue{}
+	targetURL := `https://gobyexample.com`
+	base, err := url.Parse(targetURL)
+	check(err)
+	response, err := http.Get(targetURL)
 	check(err)
 	defer response.Body.Close()
 	if response.StatusCode != 200 {
@@ -55,7 +60,12 @@ func main() {
 		case "a":
 			href, ok := s.Attr("href")
 			if ok {
-				fmt.Println(href)
+				parsedURL, err := url.Parse(href)
+				if err != nil {
+					fmt.Println("err parsing url:", err)
+				}
+				absoluteURL := base.ResolveReference(parsedURL).String()
+				URLQueue.AddURL(absoluteURL)
 			}
 		case "h1", "h2", "h3":
 			s.NextAllFiltered("p").First().Each(func(i int, p *goquery.Selection) {
@@ -63,4 +73,5 @@ func main() {
 			})
 		}
 	})
+	fmt.Println(URLQueue)
 }
