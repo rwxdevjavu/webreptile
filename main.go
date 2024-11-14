@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sync"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -31,9 +32,9 @@ func (q Queue) AddURL(url string) {
 	}
 }
 
-func main() {
-	URLQueue := Queue{}
-	targetURL := `https://gobyexample.com`
+func Crawler(targetURL string, visitedURLQueue Queue) {
+	// defer wg.Done()
+	mux.Lock()
 	base, err := url.Parse(targetURL)
 	check(err)
 	response, err := http.Get(targetURL)
@@ -65,7 +66,7 @@ func main() {
 					fmt.Println("err parsing url:", err)
 				}
 				absoluteURL := base.ResolveReference(parsedURL).String()
-				URLQueue.AddURL(absoluteURL)
+				visitedURLQueue.AddURL(absoluteURL)
 			}
 		case "h1", "h2", "h3":
 			s.NextAllFiltered("p").First().Each(func(i int, p *goquery.Selection) {
@@ -73,5 +74,28 @@ func main() {
 			})
 		}
 	})
-	fmt.Println(URLQueue)
+
+	visitedURLQueue.AddURL(targetURL)
+	fmt.Printf("%s Completed", targetURL)
+	mux.Unlock()
+}
+
+// urlQueue := make(chan string, 100)
+var mux sync.Mutex
+
+var wg sync.WaitGroup
+
+func main() {
+	visitedURLQueue := Queue{}
+	targetURL := `https://gobyexample.com`
+	visitedURLQueue.AddURL(targetURL)
+	visitedURLQueue.AddURL(`https://qikoffice.com`)
+	for url, visited := range visitedURLQueue {
+		if !visited {
+			wg.Add(1)
+			go Crawler(url, visitedURLQueue)
+		}
+	}
+	wg.Wait()
+	//fmt.Println(visitedURLQueue)
 }
